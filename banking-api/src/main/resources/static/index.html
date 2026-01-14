@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Banking Portal</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <i class="fas fa-university"></i>
+                    <div>
+                        <h1>SecureBank</h1>
+                        <p>Your Trusted Banking Partner</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <span class="status-indicator">
+                        <i class="fas fa-circle"></i> Online
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <a href="#" class="nav-item active" onclick="showTab('dashboard'); return false;">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="#" class="nav-item" onclick="showTab('accounts'); return false;">
+                        <i class="fas fa-wallet"></i>
+                        <span>Accounts</span>
+                    </a>
+                    <a href="#" class="nav-item" onclick="showTab('transactions'); return false;">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Transactions</span>
+                    </a>
+                    <a href="#" class="nav-item" onclick="showTab('transfer'); return false;">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>Transfer</span>
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard Tab -->
+                <div id="dashboard-tab" class="tab-content active">
+                    <div class="page-header">
+                        <h2>Dashboard</h2>
+                        <p>Overview of your banking activities</p>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <i class="fas fa-wallet"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalAccounts">0</h3>
+                                <p>Total Accounts</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalBalance">$0.00</h3>
+                                <p>Total Balance</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalTransactions">0</h3>
+                                <p>Transactions</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-section">
+                        <h3>Recent Accounts</h3>
+                        <div id="dashboardAccounts" class="accounts-grid"></div>
+                    </div>
+                </div>
+
+                <!-- Accounts Tab -->
+                <div id="accounts-tab" class="tab-content">
+                    <div class="page-header">
+                        <h2>Account Management</h2>
+                        <p>Manage your bank accounts</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-plus-circle"></i> Open New Account</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="createAccountForm" class="form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-user"></i> Customer ID</label>
+                                        <input type="text" id="customerId" placeholder="Enter customer ID" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-list"></i> Account Type</label>
+                                        <select id="accountType" required>
+                                            <option value="">Select account type</option>
+                                            <option value="SAVINGS">Savings Account</option>
+                                            <option value="CHECKING">Checking Account</option>
+                                            <option value="CURRENT">Current Account</option>
+                                            <option value="FIXED_DEPOSIT">Fixed Deposit</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-dollar-sign"></i> Initial Deposit</label>
+                                        <input type="number" id="initialBalance" step="0.01" placeholder="0.00" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-globe"></i> Currency</label>
+                                        <select id="currency" required>
+                                            <option value="USD">USD - US Dollar</option>
+                                            <option value="EUR">EUR - Euro</option>
+                                            <option value="GBP">GBP - British Pound</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Create Account
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list"></i> All Accounts</h3>
+                            <button onclick="loadAccounts()" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="accountsList" class="accounts-grid"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-search"></i> Search by Customer</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="customerAccountsForm" class="form-inline">
+                                <div class="form-group">
+                                    <input type="text" id="customerIdSearch" placeholder="Enter customer ID" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                            </form>
+                            <div id="customerAccountsList" class="accounts-grid" style="margin-top: 20px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transactions Tab -->
+                <div id="transactions-tab" class="tab-content">
+                    <div class="page-header">
+                        <h2>Transactions</h2>
+                        <p>Deposit, withdraw, and view transaction history</p>
+                    </div>
+
+                    <div class="cards-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-arrow-down" style="color: #4caf50;"></i> Deposit</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="depositForm" class="form">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-wallet"></i> Account</label>
+                                        <select id="depositAccountId" required>
+                                            <option value="">Select account</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-dollar-sign"></i> Amount</label>
+                                        <input type="number" id="depositAmount" step="0.01" placeholder="0.00" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-comment"></i> Description</label>
+                                        <input type="text" id="depositDescription" placeholder="Transaction description" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-check"></i> Deposit
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-arrow-up" style="color: #f44336;"></i> Withdraw</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="withdrawForm" class="form">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-wallet"></i> Account</label>
+                                        <select id="withdrawAccountId" required>
+                                            <option value="">Select account</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-dollar-sign"></i> Amount</label>
+                                        <input type="number" id="withdrawAmount" step="0.01" placeholder="0.00" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-comment"></i> Description</label>
+                                        <input type="text" id="withdrawDescription" placeholder="Transaction description" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="fas fa-check"></i> Withdraw
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-history"></i> Transaction History</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="transactionHistoryForm" class="form-inline">
+                                <div class="form-group">
+                                    <select id="historyAccountId" required>
+                                        <option value="">Select account</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> View History
+                                </button>
+                            </form>
+                            <div id="transactionHistory" class="transactions-list" style="margin-top: 20px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transfer Tab -->
+                <div id="transfer-tab" class="tab-content">
+                    <div class="page-header">
+                        <h2>Money Transfer</h2>
+                        <p>Transfer funds between accounts</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-paper-plane"></i> Transfer Funds</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="transferForm" class="form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-arrow-up"></i> From Account</label>
+                                        <select id="fromAccountId" required>
+                                            <option value="">Select source account</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-arrow-down"></i> To Account</label>
+                                        <select id="toAccountId" required>
+                                            <option value="">Select destination account</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-dollar-sign"></i> Amount</label>
+                                        <input type="number" id="transferAmount" step="0.01" placeholder="0.00" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-comment"></i> Description</label>
+                                        <input type="text" id="transferDescription" placeholder="Transfer description" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-large">
+                                    <i class="fas fa-paper-plane"></i> Transfer Money
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
