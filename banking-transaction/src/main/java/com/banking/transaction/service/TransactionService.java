@@ -13,9 +13,24 @@ import java.util.stream.Collectors;
 
 /**
  * Service for processing banking transactions.
+ * 
+ * SECURITY NOTICE: This is a Proof of Concept (PoC) implementation.
+ * Transaction data is stored in-memory for demonstration purposes only.
+ * 
+ * PRODUCTION CONSIDERATIONS:
+ * - Use a persistent database with transaction logging and audit trails
+ * - Implement encryption at rest for sensitive transaction data
+ * - Ensure ACID compliance for financial transactions
+ * - Implement proper access controls and audit logging
+ * - Follow PCI DSS, SOX, and banking security regulations
+ * - Use database transactions to ensure data consistency
+ * 
+ * For production use, replace the in-memory storage with a proper persistence layer.
  */
 public class TransactionService {
     private final AccountService accountService;
+    // SECURITY: In-memory storage - for PoC/demo only, not suitable for production
+    // TODO: Replace with persistent database storage with encryption for production
     private final Map<String, Transaction> transactions = new ConcurrentHashMap<>();
 
     public TransactionService(AccountService accountService) {
@@ -26,30 +41,25 @@ public class TransactionService {
     }
 
     public Transaction deposit(String accountId, Money amount, String description) {
-        Account account = accountService.getAccount(accountId);
-        account.deposit(amount);
+        // Use AccountService methods to ensure encrypted storage is updated
+        accountService.deposit(accountId, amount);
         Transaction transaction = new Transaction(accountId, TransactionType.DEPOSIT, amount, description);
         transactions.put(transaction.getTransactionId(), transaction);
         return transaction;
     }
 
     public Transaction withdraw(String accountId, Money amount, String description) {
-        Account account = accountService.getAccount(accountId);
-        account.withdraw(amount);
+        // Use AccountService methods to ensure encrypted storage is updated
+        accountService.withdraw(accountId, amount);
         Transaction transaction = new Transaction(accountId, TransactionType.WITHDRAWAL, amount, description);
         transactions.put(transaction.getTransactionId(), transaction);
         return transaction;
     }
 
     public Transaction transfer(String fromAccountId, String toAccountId, Money amount, String description) {
-        Account fromAccount = accountService.getAccount(fromAccountId);
-        Account toAccount = accountService.getAccount(toAccountId);
-
-        // Withdraw from source account
-        fromAccount.withdraw(amount);
-        
-        // Deposit to destination account
-        toAccount.deposit(amount);
+        // Use AccountService methods to ensure encrypted storage is updated
+        accountService.withdraw(fromAccountId, amount);
+        accountService.deposit(toAccountId, amount);
 
         // Create transaction record
         Transaction transaction = new Transaction(
