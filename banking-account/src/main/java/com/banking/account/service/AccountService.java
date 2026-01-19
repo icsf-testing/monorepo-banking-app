@@ -36,84 +36,112 @@ public class AccountService {
 
     @Transactional
     public Account createAccount(String customerId, AccountType accountType, Money initialBalance) {
+        logger.info("Creating account for customer: {}, type: {}, initial balance: {}", customerId, accountType, initialBalance);
         Account account = new Account(customerId, accountType, initialBalance);
         EncryptedAccount encryptedAccount = new EncryptedAccount(account, encryptData(account.getAccountId()));
-        return accountRepository.save(encryptedAccount).toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
+        Account createdAccount = accountRepository.save(encryptedAccount).toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
+        logger.info("Account created successfully: {}", createdAccount.getAccountId());
+        return createdAccount;
     }
 
     @Transactional(readOnly = true)
     public Account getAccount(String accountId) {
+        logger.info("Retrieving account: {}", accountId);
         EncryptedAccount encryptedAccount = accountRepository.findById(encryptData(accountId))
-                .orElseThrow(() -> new InvalidAccountException("Account not found: " + accountId));
-        return encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
+                .orElseThrow(() -> {
+                    logger.warn("Account not found: {}", accountId);
+                    return new InvalidAccountException("Account not found: " + accountId);
+                });
+        Account account = encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
+        logger.info("Account retrieved successfully: {}", accountId);
+        return account;
     }
 
     @Transactional(readOnly = true)
     public List<Account> getAccountsByCustomer(String customerId) {
+        logger.info("Retrieving accounts for customer: {}", customerId);
         List<Account> customerAccounts = new ArrayList<>();
         for (EncryptedAccount encryptedAccount : accountRepository.findByCustomerId(customerId)) {
             customerAccounts.add(encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId())));
         }
+        logger.info("Retrieved {} accounts for customer: {}", customerAccounts.size(), customerId);
         return customerAccounts;
     }
 
     @Transactional(readOnly = true)
     public List<Account> getAllAccounts() {
+        logger.info("Retrieving all accounts");
         List<Account> allAccounts = new ArrayList<>();
         for (EncryptedAccount encryptedAccount : accountRepository.findAll()) {
             allAccounts.add(encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId())));
         }
+        logger.info("Retrieved {} accounts in total", allAccounts.size());
         return allAccounts;
     }
 
     @Transactional
     public void deactivateAccount(String accountId) {
+        logger.info("Deactivating account: {}", accountId);
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
         encryptedAccount.deactivate();
         accountRepository.save(encryptedAccount);
+        logger.info("Account deactivated successfully: {}", accountId);
     }
 
     @Transactional
     public void activateAccount(String accountId) {
+        logger.info("Activating account: {}", accountId);
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
         encryptedAccount.activate();
         accountRepository.save(encryptedAccount);
+        logger.info("Account activated successfully: {}", accountId);
     }
 
     @Transactional(readOnly = true)
     public Money getBalance(String accountId) {
+        logger.info("Retrieving balance for account: {}", accountId);
         Account account = getAccount(accountId);
+        logger.info("Balance retrieved for account {}: {}", accountId, account.getBalance());
         return account.getBalance();
     }
 
     @Transactional
     public void deposit(String accountId, Money amount) {
+        logger.info("Depositing {} to account: {}", amount, accountId);
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
         Account account = encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
         account.deposit(amount);
         encryptedAccount.updateBalance(account.getBalance());
         accountRepository.save(encryptedAccount);
+        logger.info("Deposit successful for account {}: {}", accountId, amount);
     }
 
     @Transactional
     public void withdraw(String accountId, Money amount) {
+        logger.info("Withdrawing {} from account: {}", amount, accountId);
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
         Account account = encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
         account.withdraw(amount);
         encryptedAccount.updateBalance(account.getBalance());
         accountRepository.save(encryptedAccount);
+        logger.info("Withdrawal successful for account {}: {}", accountId, amount);
     }
 
     @Transactional
     void updateAccountBalance(String accountId, Money newBalance) {
+        logger.info("Updating balance for account {}: {}", accountId, newBalance);
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
         encryptedAccount.updateBalance(newBalance);
         accountRepository.save(encryptedAccount);
+        logger.info("Balance updated successfully for account {}: {}", accountId, newBalance);
     }
 
     private EncryptedAccount findAccountByIdOrThrow(String accountId) {
         return accountRepository.findById(encryptData(accountId))
-                .orElseThrow(() -> new InvalidAccountException("Account not found: " + accountId));
+                .orElseThrow(() -> {
+                    logger.warn("Account not found: {}", accountId);
+                    return new InvalidAccountException("Account not found: " + accountId);
+                });
     }
 
     private String encryptData(String data) {
@@ -123,8 +151,11 @@ public class AccountService {
                     .plaintext(SdkBytes.fromUtf8String(data))
                     .build();
             EncryptResponse encryptResponse = kmsClient.encrypt(encryptRequest);
-            return Base64.getEncoder().encodeToString(encryptResponse.ciphertextBlob().asByteArray());
+            String encryptedData = Base64.getEncoder().encodeToString(encryptResponse.ciphertextBlob().asByteArray());
+            logger.debug("Data encrypted successfully");
+            return encryptedData;
         } catch (Exception e) {
+            logger.error("Error encrypting data", e);
             throw new RuntimeException("Error encrypting data", e);
         }
     }
@@ -136,8 +167,11 @@ public class AccountService {
                     .keyId(kmsKeyId)
                     .build();
             DecryptResponse decryptResponse = kmsClient.decrypt(decryptRequest);
-            return decryptResponse.plaintext().asUtf8String();
+            String decryptedData = decryptResponse.plaintext().asUtf8String();
+            logger.debug("Data decrypted successfully");
+            return decryptedData;
         } catch (Exception e) {
+            logger.error("Error decrypting data", e);
             throw new RuntimeException("Error decrypting data", e);
         }
     }
