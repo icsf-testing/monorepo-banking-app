@@ -20,13 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Service
 public class AccountService {
-    private static final Logger logger = LoggerFactory.getLogger(AccountService.class);
-
     private final AccountRepository accountRepository;
     private final KmsClient kmsClient;
     private final String kmsKeyId;
