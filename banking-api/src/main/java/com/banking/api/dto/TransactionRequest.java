@@ -6,30 +6,29 @@ package com.banking.api.dto;
 import javax.validation.constraints.*;
 import org.hibernate.validator.constraints.Length;
 import java.util.regex.Pattern;
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
-import java.security.Key;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.banking.api.service.TokenizationService;
+import com.banking.api.service.KeyManagementService;
 
 public class TransactionRequest {
     private static final Logger logger = LoggerFactory.getLogger(TransactionRequest.class);
-    private static final String ENCRYPTION_KEY = "ThisIsASecretKey";
 
-    @NotBlank(message = "Account ID is required")
-    @Pattern(regexp = "^[a-zA-Z0-9-]+$", message = "Invalid account ID format")
-    private String accountId;
+    private final TokenizationService tokenizationService;
+    private final KeyManagementService keyManagementService;
 
-    @NotBlank(message = "From Account ID is required")
-    @Pattern(regexp = "^[a-zA-Z0-9-]+$", message = "Invalid from account ID format")
-    private String fromAccountId;
+    @NotBlank(message = "Account ID token is required")
+    @Pattern(regexp = "^[A-Za-z0-9-_]{22}$", message = "Invalid account ID token format")
+    private String accountIdToken;
 
-    @NotBlank(message = "To Account ID is required")
-    @Pattern(regexp = "^[a-zA-Z0-9-]+$", message = "Invalid to account ID format")
-    private String toAccountId;
+    @NotBlank(message = "From Account ID token is required")
+    @Pattern(regexp = "^[A-Za-z0-9-_]{22}$", message = "Invalid from account ID token format")
+    private String fromAccountIdToken;
+
+    @NotBlank(message = "To Account ID token is required")
+    @Pattern(regexp = "^[A-Za-z0-9-_]{22}$", message = "Invalid to account ID token format")
+    private String toAccountIdToken;
 
     @Positive(message = "Amount must be positive")
     private double amount;
@@ -42,61 +41,39 @@ public class TransactionRequest {
     @Length(max = 255, message = "Description must not exceed 255 characters")
     private String description;
 
-    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #accountId)")
-    public String getAccountId() {
-        try {
-            return decrypt(accountId);
-        } catch (Exception e) {
-            logger.error("Error decrypting account ID", e);
-            return null;
-        }
+    public TransactionRequest(TokenizationService tokenizationService, KeyManagementService keyManagementService) {
+        this.tokenizationService = tokenizationService;
+        this.keyManagementService = keyManagementService;
     }
 
-    public void setAccountId(String accountId) {
-        try {
-            this.accountId = encrypt(sanitizeInput(accountId));
-        } catch (Exception e) {
-            logger.error("Error encrypting account ID", e);
-        }
+    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #accountIdToken)")
+    public String getAccountIdToken() {
+        return accountIdToken;
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #fromAccountId)")
-    public String getFromAccountId() {
-        try {
-            return decrypt(fromAccountId);
-        } catch (Exception e) {
-            logger.error("Error decrypting from account ID", e);
-            return null;
-        }
+    public void setAccountIdToken(String accountIdToken) {
+        this.accountIdToken = sanitizeInput(accountIdToken);
     }
 
-    public void setFromAccountId(String fromAccountId) {
-        try {
-            this.fromAccountId = encrypt(sanitizeInput(fromAccountId));
-        } catch (Exception e) {
-            logger.error("Error encrypting from account ID", e);
-        }
+    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #fromAccountIdToken)")
+    public String getFromAccountIdToken() {
+        return fromAccountIdToken;
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #toAccountId)")
-    public String getToAccountId() {
-        try {
-            return decrypt(toAccountId);
-        } catch (Exception e) {
-            logger.error("Error decrypting to account ID", e);
-            return null;
-        }
+    public void setFromAccountIdToken(String fromAccountIdToken) {
+        this.fromAccountIdToken = sanitizeInput(fromAccountIdToken);
     }
 
-    public void setToAccountId(String toAccountId) {
-        try {
-            this.toAccountId = encrypt(sanitizeInput(toAccountId));
-        } catch (Exception e) {
-            logger.error("Error encrypting to account ID", e);
-        }
+    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #toAccountIdToken)")
+    public String getToAccountIdToken() {
+        return toAccountIdToken;
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #accountId)")
+    public void setToAccountIdToken(String toAccountIdToken) {
+        this.toAccountIdToken = sanitizeInput(toAccountIdToken);
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #accountIdToken)")
     public double getAmount() {
         return amount;
     }
@@ -128,19 +105,12 @@ public class TransactionRequest {
         return Pattern.compile("[<>&'\"]").matcher(input).replaceAll("");
     }
 
-    private String encrypt(String value) throws Exception {
-        Key key = new SecretKeySpec(ENCRYPTION_KEY.getBytes(), "AES");
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, key);
-        byte[] encrypted = cipher.doFinal(value.getBytes());
-        return Base64.getEncoder().encodeToString(encrypted);
-    }
-
-    private String decrypt(String encrypted) throws Exception {
-        Key key = new SecretKeySpec(ENCRYPTION_KEY.getBytes(), "AES");
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, key);
-        byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(encrypted));
-        return new String(decrypted);
+    public String detokenizeAccountId(String accountIdToken) {
+        try {
+            return tokenizationService.detokenize(accountIdToken);
+        } catch (Exception e) {
+            logger.error("Error detokenizing account ID", e);
+            throw new RuntimeException("Error processing account ID", e);
+        }
     }
 }
