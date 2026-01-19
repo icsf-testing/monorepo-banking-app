@@ -9,6 +9,7 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
@@ -82,5 +83,9 @@ public class DataEncryption {
             LOGGER.log(Level.SEVERE, "Decryption failed", e);
             throw new RuntimeException("Decryption failed", e);
         }
+    }
+
+    private static boolean constantTimeEquals(byte[] a, byte[] b) {
+        return MessageDigest.isEqual(a, b);
     }
 }
