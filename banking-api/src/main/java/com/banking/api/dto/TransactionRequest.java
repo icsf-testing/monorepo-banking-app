@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.banking.api.service.TokenizationService;
 import com.banking.api.service.KeyManagementService;
+import org.owasp.encoder.Encode;
 
 public class TransactionRequest {
     private static final Logger logger = LoggerFactory.getLogger(TransactionRequest.class);
@@ -102,7 +103,7 @@ public class TransactionRequest {
         if (input == null) {
             return null;
         }
-        return Pattern.compile("[<>&'\"]").matcher(input).replaceAll("");
+        return Encode.forHtml(input);
     }
 
     public String detokenizeAccountId(String accountIdToken) {
