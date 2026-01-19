@@ -12,9 +12,13 @@ import org.slf4j.LoggerFactory;
 import com.banking.api.service.TokenizationService;
 import com.banking.api.service.KeyManagementService;
 import org.owasp.encoder.Encode;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 public class TransactionRequest {
     private static final Logger logger = LoggerFactory.getLogger(TransactionRequest.class);
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("^[A-Za-z0-9-_]{22}$");
 
     private final TokenizationService tokenizationService;
     private final KeyManagementService keyManagementService;
@@ -53,7 +57,7 @@ public class TransactionRequest {
     }
 
     public void setAccountIdToken(String accountIdToken) {
-        this.accountIdToken = sanitizeInput(accountIdToken);
+        this.accountIdToken = validateAndSanitizeToken(accountIdToken);
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #fromAccountIdToken)")
@@ -62,7 +66,7 @@ public class TransactionRequest {
     }
 
     public void setFromAccountIdToken(String fromAccountIdToken) {
-        this.fromAccountIdToken = sanitizeInput(fromAccountIdToken);
+        this.fromAccountIdToken = validateAndSanitizeToken(fromAccountIdToken);
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #toAccountIdToken)")
@@ -71,7 +75,7 @@ public class TransactionRequest {
     }
 
     public void setToAccountIdToken(String toAccountIdToken) {
-        this.toAccountIdToken = sanitizeInput(toAccountIdToken);
+        this.toAccountIdToken = validateAndSanitizeToken(toAccountIdToken);
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAccountAccess(authentication, #accountIdToken)")
@@ -106,12 +110,42 @@ public class TransactionRequest {
         return Encode.forHtml(input);
     }
 
+    private String validateAndSanitizeToken(String token) {
+        if (token == null || !TOKEN_PATTERN.matcher(token).matches()) {
+            throw new IllegalArgumentException("Invalid token format");
+        }
+        return sanitizeInput(token);
+    }
+
     public String detokenizeAccountId(String accountIdToken) {
         try {
-            return tokenizationService.detokenize(accountIdToken);
+            validateAndSanitizeToken(accountIdToken);
+            String detokenized = tokenizationService.detokenize(accountIdToken);
+            if (!verifyIntegrity(detokenized)) {
+                throw new SecurityException("Token integrity check failed");
+            }
+            logger.info("Account ID detokenized successfully");
+            return detokenized;
         } catch (Exception e) {
             logger.error("Error detokenizing account ID", e);
             throw new RuntimeException("Error processing account ID", e);
         }
+    }
+
+    private boolean verifyIntegrity(String detokenized) {
+        try {
+            String expectedHash = keyManagementService.getTokenHash(detokenized);
+            String actualHash = calculateHash(detokenized);
+            return expectedHash.equals(actualHash);
+        } catch (Exception e) {
+            logger.error("Error verifying token integrity", e);
+            return false;
+        }
+    }
+
+    private String calculateHash(String input) throws NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(input.getBytes());
+        return Base64.getEncoder().encodeToString(hash);
     }
 }
