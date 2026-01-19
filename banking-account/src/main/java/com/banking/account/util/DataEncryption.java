@@ -10,22 +10,12 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * Simple encryption utility for encrypting sensitive data in memory.
- * 
- * This implementation uses AES encryption with a key derived from an environment variable.
- * For production use, ensure the BANKING_ENCRYPTION_KEY environment variable is securely set.
- * 
- * Recommended security measures:
- * - Use Hardware Security Modules (HSM) for key management
- * - Implement key rotation policies
- * - Use industry-standard encryption libraries
- */
 public class DataEncryption {
     
     private static final String ALGORITHM = "AES";
@@ -33,10 +23,12 @@ public class DataEncryption {
     private static final Logger LOGGER = Logger.getLogger(DataEncryption.class.getName());
     
     private static final SecretKey SECRET_KEY;
+    private static final byte[] SALT = new byte[16];
     
     static {
         try {
             String envKey = getEnvironmentKey();
+            new SecureRandom().nextBytes(SALT);
             SECRET_KEY = deriveKey(envKey);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to initialize encryption key", e);
@@ -55,16 +47,11 @@ public class DataEncryption {
     
     private static SecretKey deriveKey(String keyMaterial) throws NoSuchAlgorithmException, InvalidKeySpecException {
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-        PBEKeySpec spec = new PBEKeySpec(keyMaterial.toCharArray(), ENV_KEY_NAME.getBytes(), 65536, 256);
+        PBEKeySpec spec = new PBEKeySpec(keyMaterial.toCharArray(), SALT, 100000, 256);
         SecretKey tmp = factory.generateSecret(spec);
         return new SecretKeySpec(tmp.getEncoded(), ALGORITHM);
     }
     
-    /**
-     * Encrypts sensitive string data.
-     * @param plainText The plain text to encrypt
-     * @return Base64 encoded encrypted string
-     */
     public static String encrypt(String plainText) {
         if (plainText == null || plainText.isEmpty()) {
             return plainText;
@@ -81,11 +68,6 @@ public class DataEncryption {
         }
     }
     
-    /**
-     * Decrypts encrypted string data.
-     * @param encryptedText The Base64 encoded encrypted string
-     * @return Decrypted plain text
-     */
     public static String decrypt(String encryptedText) {
         if (encryptedText == null || encryptedText.isEmpty()) {
             return encryptedText;
