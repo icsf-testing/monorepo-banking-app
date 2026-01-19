@@ -5,88 +5,66 @@ package com.banking.account.util;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.UUID;
+import java.security.spec.InvalidKeySpecException;
+import java.util.Base64;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Simple encryption utility for encrypting sensitive data in memory.
+ * 
+ * This implementation uses AES encryption with a key derived from an environment variable.
+ * For production use, ensure the BANKING_ENCRYPTION_KEY environment variable is securely set.
+ * 
+ * Recommended security measures:
+ * - Use Hardware Security Modules (HSM) for key management
+ * - Implement key rotation policies
+ * - Use industry-standard encryption libraries
+ */
 public class DataEncryption {
     
     private static final String ALGORITHM = "AES";
-    private static final String ENV_VAR_NAME = "BANKING_ENCRYPTION_KEY";
+    private static final String ENV_KEY_NAME = "BANKING_ENCRYPTION_KEY";
     private static final Logger LOGGER = Logger.getLogger(DataEncryption.class.getName());
     
-    private static final KeyRotationManager KEY_MANAGER;
+    private static final SecretKey SECRET_KEY;
     
     static {
         try {
-            String envKey = System.getenv(ENV_VAR_NAME);
-            if (envKey == null || envKey.isEmpty()) {
-                throw new IllegalStateException("Encryption key environment variable " + ENV_VAR_NAME + " is not set");
-            }
-            KEY_MANAGER = new KeyRotationManager(envKey);
+            String envKey = getEnvironmentKey();
+            SECRET_KEY = deriveKey(envKey);
         } catch (Exception e) {
-            throw new ExceptionInInitializerError("Failed to initialize encryption key: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to initialize encryption key", e);
+            throw new RuntimeException("Failed to initialize encryption key", e);
         }
     }
     
-    private static class KeyRotationManager {
-        private final ConcurrentHashMap<String, SecretKey> keys = new ConcurrentHashMap<>();
-        private String currentKeyId;
-        private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        
-        public KeyRotationManager(String initialKey) throws NoSuchAlgorithmException {
-            rotateKey(initialKey);
-            scheduleKeyRotation();
+    private static String getEnvironmentKey() {
+        String envKey = System.getenv(ENV_KEY_NAME);
+        if (envKey == null || envKey.isEmpty()) {
+            LOGGER.severe("Environment variable " + ENV_KEY_NAME + " is not set or empty");
+            throw new IllegalStateException("Encryption key environment variable is not set");
         }
-        
-        private void scheduleKeyRotation() {
-            scheduler.scheduleAtFixedRate(this::rotateKey, 30, 30, TimeUnit.DAYS);
-        }
-        
-        private void rotateKey() {
-            try {
-                String newKey = generateNewKey();
-                rotateKey(newKey);
-            } catch (Exception e) {
-                LOGGER.severe("Failed to rotate key: " + e.getMessage());
-            }
-        }
-        
-        private void rotateKey(String keyString) throws NoSuchAlgorithmException {
-            SecretKey newKey = deriveKeyFromString(keyString);
-            String keyId = UUID.randomUUID().toString();
-            keys.put(keyId, newKey);
-            currentKeyId = keyId;
-            LOGGER.info("Key rotated. New key ID: " + keyId);
-        }
-        
-        public SecretKey getCurrentKey() {
-            return keys.get(currentKeyId);
-        }
-        
-        public SecretKey getKey(String keyId) {
-            return keys.get(keyId);
-        }
-        
-        private String generateNewKey() {
-            return UUID.randomUUID().toString();
-        }
+        return envKey;
     }
     
-    private static SecretKey deriveKeyFromString(String keyString) throws NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] keyBytes = digest.digest(keyString.getBytes(StandardCharsets.UTF_8));
-        return new SecretKeySpec(keyBytes, 0, 16, ALGORITHM);
+    private static SecretKey deriveKey(String keyMaterial) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        PBEKeySpec spec = new PBEKeySpec(keyMaterial.toCharArray(), ENV_KEY_NAME.getBytes(), 65536, 256);
+        SecretKey tmp = factory.generateSecret(spec);
+        return new SecretKeySpec(tmp.getEncoded(), ALGORITHM);
     }
     
+    /**
+     * Encrypts sensitive string data.
+     * @param plainText The plain text to encrypt
+     * @return Base64 encoded encrypted string
+     */
     public static String encrypt(String plainText) {
         if (plainText == null || plainText.isEmpty()) {
             return plainText;
@@ -94,52 +72,32 @@ public class DataEncryption {
         
         try {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, KEY_MANAGER.getCurrentKey());
+            cipher.init(Cipher.ENCRYPT_MODE, SECRET_KEY);
             byte[] encryptedBytes = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
-            String keyId = KEY_MANAGER.currentKeyId;
-            byte[] combined = new byte[encryptedBytes.length + keyId.getBytes().length + 1];
-            System.arraycopy(keyId.getBytes(), 0, combined, 0, keyId.getBytes().length);
-            combined[keyId.getBytes().length] = ':';
-            System.arraycopy(encryptedBytes, 0, combined, keyId.getBytes().length + 1, encryptedBytes.length);
-            return Base64.getEncoder().encodeToString(combined);
+            return Base64.getEncoder().encodeToString(encryptedBytes);
         } catch (Exception e) {
-            LOGGER.severe("Encryption failed: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Encryption failed", e);
             throw new RuntimeException("Encryption failed", e);
         }
     }
     
+    /**
+     * Decrypts encrypted string data.
+     * @param encryptedText The Base64 encoded encrypted string
+     * @return Decrypted plain text
+     */
     public static String decrypt(String encryptedText) {
         if (encryptedText == null || encryptedText.isEmpty()) {
             return encryptedText;
         }
         
         try {
-            byte[] decoded = Base64.getDecoder().decode(encryptedText);
-            int separatorIndex = -1;
-            for (int i = 0; i < decoded.length; i++) {
-                if (decoded[i] == ':') {
-                    separatorIndex = i;
-                    break;
-                }
-            }
-            if (separatorIndex == -1) {
-                throw new IllegalArgumentException("Invalid encrypted data format");
-            }
-            String keyId = new String(decoded, 0, separatorIndex, StandardCharsets.UTF_8);
-            byte[] encryptedBytes = new byte[decoded.length - separatorIndex - 1];
-            System.arraycopy(decoded, separatorIndex + 1, encryptedBytes, 0, encryptedBytes.length);
-            
-            SecretKey key = KEY_MANAGER.getKey(keyId);
-            if (key == null) {
-                throw new IllegalStateException("Key not found for ID: " + keyId);
-            }
-            
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, key);
-            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+            cipher.init(Cipher.DECRYPT_MODE, SECRET_KEY);
+            byte[] decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedText));
             return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            LOGGER.severe("Decryption failed: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Decryption failed", e);
             throw new RuntimeException("Decryption failed", e);
         }
     }
