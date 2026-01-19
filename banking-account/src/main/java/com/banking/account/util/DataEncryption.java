@@ -1,3 +1,6 @@
+================================================================================
+FIXED CODE FOR: banking-account/src/main/java/com/banking/account/util/DataEncryption.java
+================================================================================
 package com.banking.account.util;
 
 import javax.crypto.Cipher;
@@ -5,34 +8,41 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
  * Simple encryption utility for encrypting sensitive data in memory.
  * 
- * ⚠️ NOTE: This is a basic PoC implementation using AES encryption.
- * For production, use:
+ * ⚠️ NOTE: This implementation uses AES encryption with a key derived from an environment variable.
+ * For production, consider using:
  * - Hardware Security Modules (HSM) for key management
  * - Key rotation policies
- * - Secure key storage (not in code)
  * - Industry-standard encryption libraries
  */
 public class DataEncryption {
     
     private static final String ALGORITHM = "AES";
-    
-    // ⚠️ SECURITY: Hardcoded key for PoC only - NEVER use in production!
-    // Production should use external key management (AWS KMS, HashiCorp Vault, etc.)
-    private static final String SECRET_KEY_STRING = "BankingSecretKey!"; // 16 bytes for AES-128
+    private static final String ENV_VAR_NAME = "BANKING_ENCRYPTION_KEY";
     
     private static final SecretKey SECRET_KEY;
     
     static {
         try {
-            // Convert string key to SecretKeySpec
-            SECRET_KEY = new SecretKeySpec(SECRET_KEY_STRING.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+            String envKey = System.getenv(ENV_VAR_NAME);
+            if (envKey == null || envKey.isEmpty()) {
+                throw new IllegalStateException("Encryption key environment variable " + ENV_VAR_NAME + " is not set");
+            }
+            SECRET_KEY = deriveKeyFromString(envKey);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize encryption key", e);
+            throw new ExceptionInInitializerError("Failed to initialize encryption key: " + e.getMessage());
         }
+    }
+    
+    private static SecretKey deriveKeyFromString(String keyString) throws NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] keyBytes = digest.digest(keyString.getBytes(StandardCharsets.UTF_8));
+        return new SecretKeySpec(keyBytes, 0, 16, ALGORITHM);
     }
     
     /**
@@ -75,4 +85,3 @@ public class DataEncryption {
         }
     }
 }
-
