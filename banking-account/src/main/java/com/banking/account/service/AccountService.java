@@ -1,62 +1,50 @@
+================================================================================
+FIXED CODE FOR: banking-account/src/main/java/com/banking/account/service/AccountService.java
+================================================================================
 package com.banking.account.service;
 
 import com.banking.account.domain.Account;
 import com.banking.account.domain.EncryptedAccount;
-import com.banking.account.util.DataEncryption;
 import com.banking.core.domain.AccountType;
 import com.banking.core.domain.Money;
 import com.banking.core.exception.InvalidAccountException;
+import software.amazon.awssdk.services.kms.KmsClient;
+import software.amazon.awssdk.services.kms.model.DecryptRequest;
+import software.amazon.awssdk.services.kms.model.DecryptResponse;
+import software.amazon.awssdk.services.kms.model.EncryptRequest;
+import software.amazon.awssdk.services.kms.model.EncryptResponse;
+import software.amazon.awssdk.core.SdkBytes;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Service for managing bank accounts.
- * 
- * SECURITY IMPROVEMENT: Insecure Data Storage Vulnerability Fixed
- * ===============================================================
- * This implementation addresses the "Insecure Data Storage" vulnerability by:
- * - Encrypting sensitive fields (customerId, accountId) before storing in memory
- * - Using AES encryption for data at rest in memory
- * - Decrypting data only when needed for business logic
- * 
- * ⚠️ NOTE: This is a PoC mitigation. Full production solution requires:
- * - Persistent database with encryption at rest
- * - Secure key management (HSM, AWS KMS, HashiCorp Vault)
- * - Key rotation policies
- * - Hardware Security Modules for sensitive operations
- * - Comprehensive audit logging
- * - Access controls and compliance (PCI DSS, SOX, GDPR)
- * 
- * Current implementation uses in-memory encrypted storage which:
- * - ✅ Encrypts sensitive data in memory (mitigates memory dump attacks)
- * - ⚠️ Data still lost on restart (use persistent DB for production)
- * - ⚠️ Uses hardcoded key (use external key management in production)
- */
 public class AccountService {
-    // SECURITY: Using encrypted account storage - sensitive fields encrypted in memory
-    // Account IDs and Customer IDs are encrypted using AES encryption
     private final Map<String, EncryptedAccount> accounts = new ConcurrentHashMap<>();
+    private final KmsClient kmsClient;
+    private final String kmsKeyId;
+
+    public AccountService(KmsClient kmsClient, String kmsKeyId) {
+        this.kmsClient = kmsClient;
+        this.kmsKeyId = kmsKeyId;
+    }
 
     public Account createAccount(String customerId, AccountType accountType, Money initialBalance) {
         Account account = new Account(customerId, accountType, initialBalance);
-        EncryptedAccount encryptedAccount = new EncryptedAccount(account);
-        // Store using encrypted account ID as key
+        EncryptedAccount encryptedAccount = new EncryptedAccount(account, encryptData(account.getAccountId()));
         accounts.put(encryptedAccount.getEncryptedAccountId(), encryptedAccount);
         return account;
     }
 
     public Account getAccount(String accountId) {
-        // Find account by decrypting and comparing IDs
         EncryptedAccount encryptedAccount = findAccountById(accountId);
         if (encryptedAccount == null) {
             throw new InvalidAccountException("Account not found: " + accountId);
         }
-        return encryptedAccount.toAccount();
+        return encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
     }
     
     private EncryptedAccount findAccountById(String accountId) {
-        String encryptedAccountId = DataEncryption.encrypt(accountId);
+        String encryptedAccountId = encryptData(accountId);
         return accounts.get(encryptedAccountId);
     }
     
@@ -72,7 +60,7 @@ public class AccountService {
         List<Account> customerAccounts = new ArrayList<>();
         for (EncryptedAccount encryptedAccount : accounts.values()) {
             if (encryptedAccount.getCustomerId().equals(customerId)) {
-                customerAccounts.add(encryptedAccount.toAccount());
+                customerAccounts.add(encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId())));
             }
         }
         return customerAccounts;
@@ -81,7 +69,7 @@ public class AccountService {
     public List<Account> getAllAccounts() {
         List<Account> allAccounts = new ArrayList<>();
         for (EncryptedAccount encryptedAccount : accounts.values()) {
-            allAccounts.add(encryptedAccount.toAccount());
+            allAccounts.add(encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId())));
         }
         return allAccounts;
     }
@@ -101,35 +89,48 @@ public class AccountService {
         return account.getBalance();
     }
     
-    /**
-     * Deposits money into an account.
-     * This method updates the encrypted storage with the new balance.
-     */
     public void deposit(String accountId, Money amount) {
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
-        Account account = encryptedAccount.toAccount();
+        Account account = encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
         account.deposit(amount);
         encryptedAccount.updateBalance(account.getBalance());
     }
     
-    /**
-     * Withdraws money from an account.
-     * This method updates the encrypted storage with the new balance.
-     */
     public void withdraw(String accountId, Money amount) {
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
-        Account account = encryptedAccount.toAccount();
+        Account account = encryptedAccount.toAccount(decryptData(encryptedAccount.getEncryptedAccountId()));
         account.withdraw(amount);
         encryptedAccount.updateBalance(account.getBalance());
     }
     
-    /**
-     * Updates account balance (used internally by transaction operations).
-     * This method preserves encryption while updating balance.
-     */
     void updateAccountBalance(String accountId, Money newBalance) {
         EncryptedAccount encryptedAccount = findAccountByIdOrThrow(accountId);
         encryptedAccount.updateBalance(newBalance);
     }
-}
 
+    private String encryptData(String data) {
+        try {
+            EncryptRequest encryptRequest = EncryptRequest.builder()
+                    .keyId(kmsKeyId)
+                    .plaintext(SdkBytes.fromUtf8String(data))
+                    .build();
+            EncryptResponse encryptResponse = kmsClient.encrypt(encryptRequest);
+            return Base64.getEncoder().encodeToString(encryptResponse.ciphertextBlob().asByteArray());
+        } catch (Exception e) {
+            throw new RuntimeException("Error encrypting data", e);
+        }
+    }
+
+    private String decryptData(String encryptedData) {
+        try {
+            DecryptRequest decryptRequest = DecryptRequest.builder()
+                    .ciphertextBlob(SdkBytes.fromByteArray(Base64.getDecoder().decode(encryptedData)))
+                    .keyId(kmsKeyId)
+                    .build();
+            DecryptResponse decryptResponse = kmsClient.decrypt(decryptRequest);
+            return decryptResponse.plaintext().asUtf8String();
+        } catch (Exception e) {
+            throw new RuntimeException("Error decrypting data", e);
+        }
+    }
+}
