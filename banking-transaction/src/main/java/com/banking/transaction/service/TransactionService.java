@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
 public class TransactionService {
+    private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
+
     private final AccountService accountService;
     private final TransactionRepository transactionRepository;
 
@@ -73,8 +75,14 @@ public class TransactionService {
         return transactionRepository.findAll();
     }
 
-    public Money calculateAccountBalance(String accountId) {
-        Account account = accountService.getAccount(accountId);
-        return account.getBalance();
+    public Money calculateAccountBalance(String accountId) throws InvalidInputException {
+        try {
+            inputValidator.validateAccountId(accountId);
+            Account account = accountService.getAccount(accountId);
+            return account.getBalance();
+        } catch (Exception e) {
+            logger.error("Error calculating account balance", e);
+            throw e;
+        }
     }
 }
