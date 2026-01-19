@@ -1,3 +1,6 @@
+================================================================================
+FIXED CODE FOR: banking-account/src/main/java/com/banking/account/domain/Account.java
+================================================================================
 package com.banking.account.domain;
 
 import com.banking.core.domain.AccountType;
@@ -5,13 +8,14 @@ import com.banking.core.domain.Money;
 import com.banking.core.exception.InsufficientFundsException;
 import com.banking.core.exception.InvalidAccountException;
 
+import java.security.SecureRandom;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Represents a bank account with balance and account details.
  */
 public class Account {
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private final String accountId;
     private final String customerId;
     private final AccountType accountType;
@@ -29,7 +33,7 @@ public class Account {
             throw new IllegalArgumentException("Initial balance cannot be null");
         }
         
-        this.accountId = UUID.randomUUID().toString();
+        this.accountId = generateSecureAccountId();
         this.customerId = customerId;
         this.accountType = accountType;
         this.balance = initialBalance;
@@ -42,6 +46,20 @@ public class Account {
         this.accountType = accountType;
         this.balance = balance;
         this.active = active;
+    }
+
+    private String generateSecureAccountId() {
+        byte[] randomBytes = new byte[16];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return bytesToHex(randomBytes);
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte b : bytes) {
+            result.append(String.format("%02x", b));
+        }
+        return result.toString();
     }
 
     public String getAccountId() {
@@ -118,4 +136,3 @@ public class Account {
                 accountId, customerId, accountType, balance, active);
     }
 }
-
