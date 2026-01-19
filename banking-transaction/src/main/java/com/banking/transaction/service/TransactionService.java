@@ -19,6 +19,8 @@ import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
 public class TransactionService {
+    private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
+
     private final AccountService accountService;
     private final TransactionRepository transactionRepository;
     private final InputValidator inputValidator;
