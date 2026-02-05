@@ -1,6 +1,3 @@
-================================================================================
-FIXED CODE FOR: banking-account/src/main/java/com/banking/account/util/DataEncryption.java
-================================================================================
 package com.banking.account.util;
 
 import javax.crypto.Cipher;

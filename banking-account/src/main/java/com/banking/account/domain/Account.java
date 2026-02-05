@@ -1,6 +1,3 @@
-================================================================================
-FIXED CODE FOR: banking-account/src/main/java/com/banking/account/domain/Account.java
-================================================================================
 package com.banking.account.domain;
 
 import com.banking.core.domain.AccountType;
