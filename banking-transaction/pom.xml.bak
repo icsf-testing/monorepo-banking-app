@@ -6,12 +6,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.banking</groupId>
-    <artifactId>banking-account</artifactId>
+    <artifactId>banking-transaction</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>Banking Account Module</name>
-    <description>Account management module for banking system</description>
+    <name>Banking Transaction Module</name>
+    <description>Transaction processing module for banking system</description>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
@@ -19,6 +19,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.9.2</junit.version>
         <banking-core.version>1.0.0</banking-core.version>
+        <banking-account.version>1.0.0</banking-account.version>
     </properties>
 
     <dependencies>
@@ -29,6 +30,13 @@
             <version>${banking-core.version}</version>
         </dependency>
 
+        <!-- Dependency on banking-account module -->
+        <dependency>
+            <groupId>com.banking</groupId>
+            <artifactId>banking-account</artifactId>
+            <version>${banking-account.version}</version>
+        </dependency>
+
         <!-- JUnit 5 for testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -36,33 +44,7 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
-            <!-- Cucumber BDD -->
-        <dependency>
-            <groupId>io.cucumber</groupId>
-            <artifactId>cucumber-java</artifactId>
-            <version>7.18.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.cucumber</groupId>
-            <artifactId>cucumber-junit-platform-engine</artifactId>
-            <version>7.18.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.platform</groupId>
-            <artifactId>junit-platform-suite</artifactId>
-            <version>1.10.2</version>
-            <scope>test</scope>
-        </dependency>
-        <!-- Playwright E2E -->
-        <dependency>
-            <groupId>com.microsoft.playwright</groupId>
-            <artifactId>playwright</artifactId>
-            <version>1.49.0</version>
-            <scope>test</scope>
-        </dependency>
-</dependencies>
+    </dependencies>
 
     <build>
         <plugins>
@@ -80,26 +62,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.0.0</version>
             </plugin>
-                <plugin>
-          <groupId>org.jacoco</groupId>
-          <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.11</version>
-          <executions>
-            <execution>
-              <goals>
-                <goal>prepare-agent</goal>
-              </goals>
-            </execution>
-            <execution>
-              <id>report</id>
-              <phase>test</phase>
-              <goals>
-                <goal>report</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
-</plugins>
+        </plugins>
     </build>
 </project>
 

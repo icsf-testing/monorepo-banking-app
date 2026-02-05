@@ -1,11 +1,9 @@
-================================================================================
-FIXED CODE FOR: banking-account/src/main/java/com/banking/account/domain/EncryptedAccount.java
-================================================================================
 package com.banking.account.domain;
 
 import com.banking.account.util.AWSKMSEncryption;
 import com.banking.core.domain.AccountType;
 import com.banking.core.domain.Money;
+import com.banking.core.domain.Account;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
